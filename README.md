@@ -78,10 +78,11 @@ isn't.
 
 ## Jobs
 
-| Job                | Namespace | When        | PBS backup (namespace `k8s`)                                                                                        | Token                   |
-| ------------------ | --------- | ----------- | ------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `etcd-backup`      | `backup`  | daily 03:30 | `host/k8smaster-etcd`: `etcd.img` + `kubernetes.pxar` (`/etc/kubernetes` without `tmp/`, kubeadm upgrade leftovers) | `k8s-backup@pbs!etcd`   |
-| `harbor-db-backup` | `harbor`  | daily 03:35 | `host/harbor-db`: `harbor-db.pxar` (`registry.dump` + `globals.sql`)                                                | `k8s-backup@pbs!harbor` |
+| Job                 | Namespace      | When        | PBS backup (namespace `k8s`)                                                                                        | Token                             |
+| ------------------- | -------------- | ----------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `etcd-backup`       | `backup`       | daily 03:30 | `host/k8smaster-etcd`: `etcd.img` + `kubernetes.pxar` (`/etc/kubernetes` without `tmp/`, kubeadm upgrade leftovers) | `k8s-backup@pbs!etcd`             |
+| `harbor-db-backup`  | `harbor`       | daily 03:35 | `host/harbor-db`: `harbor-db.pxar` (`registry.dump` + `globals.sql`)                                                | `k8s-backup@pbs!harbor`           |
+| `recordings-backup` | `donderschoer` | daily 03:45 | `host/donderschoer-recordings`: `recordings.pxar` (the recordings volume, read-only)                                | `k8s-backup@pbs!rec-donderschoer` |
 
 Each script stops at the first error and checks what it made before
 sending it (etcd: at least `MIN_KEYS` keys; Harbor: at least
@@ -104,7 +105,9 @@ kubectl -n backup create secret generic pbs-backup --from-file=token=/tmp/pbs-to
 shred -u /tmp/pbs-token
 ```
 
-Same for the Harbor job with the `!harbor` token, in namespace `harbor`.
+Same for the Harbor job with the `!harbor` token in namespace `harbor`, and
+the recordings job with the `!rec-donderschoer` token in namespace
+`donderschoer`. Each token only in its own namespace.
 The Harbor DB password comes from Harbor's own Secret `harbor-database`.
 
 ### Run once by hand
