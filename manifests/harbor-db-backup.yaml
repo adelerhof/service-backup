@@ -39,7 +39,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: harbor-db-backup
-              image: ghcr.io/adelerhof/k8s-backup:20261127150302@sha256:d52269ddee653abaae738cd60de143140ea959e490f2c159486aa82866d0d6c3
+              image: ghcr.io/adelerhof/k8s-backup:20261127162121@sha256:8d1f52006cf9f2a70767796f6a6a1d27a616be324f649e028a3df0f3e14977d9
               imagePullPolicy: IfNotPresent
               command: [/usr/local/bin/harbor-db-backup.sh]
               env:
