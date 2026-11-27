@@ -76,6 +76,10 @@ spec:
               volumeMounts:
                 - name: work
                   mountPath: /work
+                # proxmox-backup-client writes temp files to /tmp (catalog,
+                # restore) and the root filesystem is read-only
+                - name: tmp
+                  mountPath: /tmp
                 - name: pbs-token
                   mountPath: /secrets/pbs
                   readOnly: true
@@ -84,6 +88,9 @@ spec:
               secret:
                 secretName: pbs-backup
                 defaultMode: 288 # 0440
+            - name: tmp
+              emptyDir:
+                sizeLimit: 256Mi
             - name: work
               emptyDir:
                 sizeLimit: 1Gi

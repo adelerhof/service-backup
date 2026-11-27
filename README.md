@@ -80,7 +80,7 @@ isn't.
 
 | Job                | Namespace | When        | PBS backup (namespace `k8s`)                                              | Token                   |
 | ------------------ | --------- | ----------- | ------------------------------------------------------------------------- | ----------------------- |
-| `etcd-backup`      | `backup`  | daily 03:30 | `host/k8smaster-etcd`: `etcd.img` + `kubernetes.pxar` (`/etc/kubernetes`) | `k8s-backup@pbs!etcd`   |
+| `etcd-backup`      | `backup`  | daily 03:30 | `host/k8smaster-etcd`: `etcd.img` + `kubernetes.pxar` (`/etc/kubernetes` without `tmp/`, kubeadm upgrade leftovers) | `k8s-backup@pbs!etcd`   |
 | `harbor-db-backup` | `harbor`  | daily 03:35 | `host/harbor-db`: `harbor-db.pxar` (`registry.dump` + `globals.sql`)      | `k8s-backup@pbs!harbor` |
 
 Each script stops at the first error and checks what it made before
