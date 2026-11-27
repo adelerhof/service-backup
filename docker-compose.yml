@@ -1,0 +1,4 @@
+services:
+  k8s-backup:
+    build: .
+    image: k8s-backup-local
