@@ -59,7 +59,8 @@ spec:
               resources:
                 requests:
                   cpu: 100m
-                  memory: 128Mi
+                  # tmpfs scratch counts as memory: 129 MB snapshot + client
+                  memory: 384Mi
                 limits:
                   cpu: "1"
                   memory: 1Gi
@@ -91,9 +92,18 @@ spec:
               secret:
                 secretName: pbs-backup
                 defaultMode: 256 # 0400
+            # Scratch space in memory (tmpfs), never on the node disk: no
+            # containerd/kubelet disk pressure, and it counts against the
+            # container's memory limit, so an oversized run fails loudly.
+            # Not a PVC: Longhorn doesn't run on k8smaster, and the etcd
+            # backup must not depend on Longhorn (it's what rescues a broken
+            # cluster). The snapshot holds every Secret: in tmpfs it never
+            # touches k8smaster's disk.
             - name: tmp
               emptyDir:
-                sizeLimit: 256Mi
+                medium: Memory
+                sizeLimit: 64Mi
             - name: work
               emptyDir:
-                sizeLimit: 2Gi
+                medium: Memory
+                sizeLimit: 512Mi
