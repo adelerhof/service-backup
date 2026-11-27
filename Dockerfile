@@ -81,11 +81,13 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         proxmox-backup-client \
         "postgresql-client-${PG_MAJOR}" \
+        jq \
         rsync \
         tzdata \
     && rm -rf /var/lib/apt/lists/* \
-    && ln -s "/usr/lib/postgresql/${PG_MAJOR}/bin/pg_dump" /usr/local/bin/pg_dump \
-    && ln -s "/usr/lib/postgresql/${PG_MAJOR}/bin/pg_restore" /usr/local/bin/pg_restore \
+    && for tool in pg_dump pg_dumpall pg_restore psql; do \
+        ln -s "/usr/lib/postgresql/${PG_MAJOR}/bin/${tool}" "/usr/local/bin/${tool}"; \
+    done \
     && useradd --uid 10001 --user-group --home-dir /home/backup --create-home --shell /usr/sbin/nologin backup-runner
 
 COPY scripts/ /usr/local/bin/

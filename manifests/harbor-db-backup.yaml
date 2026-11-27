@@ -1,0 +1,89 @@
+# trunk-ignore-all(checkov/CKV_K8S_35): PGPASSWORD comes from Harbor's own Secret, which
+# holds only the bare password (a PGPASSFILE needs host:port:db:user:password).
+# Harbor database -> PBS, nightly (DR plan chapter 6).
+# Runs in the harbor namespace: it needs Harbor's own Secret
+# harbor-database. Secret pbs-backup (key: token) is created by hand, see
+# README. Egress to PBS: NetworkPolicy allow-backup-pbs-egress in the
+# adelerhof/k8s repository (matches the pod label below).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: harbor-db-backup
+  namespace: harbor
+spec:
+  schedule: 35 3 * * *
+  timeZone: Europe/Amsterdam
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: harbor-db-backup
+            app.kubernetes.io/part-of: service-backup
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            # makes the pbs-backup Secret file group-readable for uid 10001
+            fsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: harbor-db-backup
+              image: ghcr.io/adelerhof/k8s-backup:20261127143111@sha256:ae405e2366897dc0bbebc7aee163210df4ae51e3ddf2ecf8a1e1c7a2bc86977b
+              imagePullPolicy: IfNotPresent
+              command: [/usr/local/bin/harbor-db-backup.sh]
+              env:
+                - name: PGHOST
+                  value: harbor-database
+                - name: PGUSER
+                  value: postgres
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: harbor-database
+                      key: POSTGRES_PASSWORD
+                - name: PBS_REPOSITORY
+                  value: k8s-backup@pbs!harbor@pbs.home.adelerhof.eu:8007:synology
+                - name: PBS_PASSWORD_FILE
+                  value: /secrets/pbs/token
+                - name: HOME
+                  value: /work
+                - name: XDG_RUNTIME_DIR
+                  value: /work
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: "1"
+                  memory: 512Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+                - name: pbs-token
+                  mountPath: /secrets/pbs
+                  readOnly: true
+          volumes:
+            - name: pbs-token
+              secret:
+                secretName: pbs-backup
+                defaultMode: 288 # 0440
+            - name: work
+              emptyDir:
+                sizeLimit: 1Gi

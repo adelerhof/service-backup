@@ -45,8 +45,11 @@ docker push "${IMAGES[3]}" || echo "⚠️  WARNING: push of '${IMAGES[3]}' to H
 
 # Manifests arrive with chapters 6-8; until then there is nothing to update.
 if compgen -G "manifests/*.yaml" >/dev/null; then
-	echo "📝 Updating the image tag in manifests/"
-	sed -i "s|image: ${GHCR_REGISTRY}/${SERVICE_NAME}:.*|image: ${IMAGES[1]}|" manifests/*.yaml
+	# tag@digest: the tag for people, the digest for the cluster (immutable)
+	PINNED=$(docker inspect --format '{{index .RepoDigests 0}}' "${IMAGES[1]}")
+	PINNED="${IMAGES[1]}@${PINNED#*@}"
+	echo "📝 Updating the image in manifests/ to ${PINNED}"
+	sed -i "s|image: ${GHCR_REGISTRY}/${SERVICE_NAME}:.*|image: ${PINNED}|" manifests/*.yaml
 fi
 
 docker image rm -f "${LOCAL_IMAGE}" "${IMAGES[@]}" >/dev/null 2>&1 || true
