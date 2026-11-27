@@ -1,0 +1,97 @@
+# donderschoer recordings volume -> PBS, nightly (DR plan chapter 7).
+# Runs in donderschoer: a pod can only mount a PVC from its own namespace.
+# Secret pbs-backup (key: token, the !rec-donderschoer token) is created by
+# hand, see README. Egress: NetworkPolicy allow-backup-pbs-egress in the
+# adelerhof/k8s repository (matches the pod label below).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: recordings-backup
+  namespace: donderschoer
+spec:
+  # recordings run in the evening (19:55, done ~21:05): nothing is being
+  # written at 03:45
+  schedule: 45 3 * * *
+  timeZone: Europe/Amsterdam
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 7200
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: recordings-backup
+            app.kubernetes.io/part-of: service-backup
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          # Same user as the app. No fsGroup on purpose: it could make the
+          # kubelet chown the whole app volume on mount; a backup must not
+          # change what it backs up. The token file is 0444 instead.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10000
+            runAsGroup: 10000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: recordings-backup
+              image: ghcr.io/adelerhof/k8s-backup:20261127162121@sha256:8d1f52006cf9f2a70767796f6a6a1d27a616be324f649e028a3df0f3e14977d9
+              imagePullPolicy: IfNotPresent
+              command: [/usr/local/bin/dir-backup.sh]
+              env:
+                - name: SOURCE_DIR
+                  value: /data
+                - name: ARCHIVE_NAME
+                  value: recordings.pxar
+                - name: BACKUP_ID
+                  value: donderschoer-recordings
+                - name: PBS_REPOSITORY
+                  value: k8s-backup@pbs!rec-donderschoer@pbs.home.adelerhof.eu:8007:synology
+                - name: PBS_PASSWORD_FILE
+                  value: /secrets/pbs/token
+                - name: HOME
+                  value: /tmp
+                - name: XDG_RUNTIME_DIR
+                  value: /tmp
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 192Mi
+                limits:
+                  cpu: "1"
+                  memory: 1Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: recordings
+                  mountPath: /data
+                  readOnly: true
+                - name: pbs-token
+                  mountPath: /secrets/pbs
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: recordings
+              persistentVolumeClaim:
+                claimName: download-donderschoer-pvc
+                readOnly: true
+            - name: pbs-token
+              secret:
+                secretName: pbs-backup
+                defaultMode: 292 # 0444, see the securityContext comment
+            # client temp files (catalog, chunk index) in memory, never on
+            # the node disk (user's rule: no disk-backed emptyDirs)
+            - name: tmp
+              emptyDir:
+                medium: Memory
+                sizeLimit: 64Mi
