@@ -76,6 +76,10 @@ spec:
               volumeMounts:
                 - name: work
                   mountPath: /work
+                # proxmox-backup-client writes temp files to /tmp (catalog,
+                # restore) and the root filesystem is read-only
+                - name: tmp
+                  mountPath: /tmp
                 - name: pbs-token
                   mountPath: /secrets/pbs
                   readOnly: true
@@ -84,6 +88,16 @@ spec:
               secret:
                 secretName: pbs-backup
                 defaultMode: 288 # 0440
+            # Scratch space in memory (tmpfs), never on the node disk: no
+            # containerd/kubelet disk pressure, and it counts against the
+            # container's memory limit, so an oversized run fails loudly.
+            # Not a PVC: a 1 MB dump that lives for a second doesn't need a
+            # replicated Longhorn volume attached every night.
+            - name: tmp
+              emptyDir:
+                medium: Memory
+                sizeLimit: 64Mi
             - name: work
               emptyDir:
-                sizeLimit: 1Gi
+                medium: Memory
+                sizeLimit: 64Mi

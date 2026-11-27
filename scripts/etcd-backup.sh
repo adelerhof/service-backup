@@ -41,10 +41,13 @@ if ! [[ ${keys} =~ ^[0-9]+$ ]] || ((keys < MIN_KEYS)); then
 	exit 1
 fi
 
+# /etc/kubernetes/tmp holds kubeadm's upgrade leftovers: full copies of the
+# etcd data dir (465 MB each, 2026-11-27). The snapshot above replaces them.
 log "3/3 send to PBS (${PBS_NAMESPACE}/host/${BACKUP_ID})"
 proxmox-backup-client backup \
 	"etcd.img:${snapshot}" \
 	"kubernetes.pxar:${HOST_K8S}" \
+	--exclude /tmp \
 	--ns "${PBS_NAMESPACE}" \
 	--backup-type host \
 	--backup-id "${BACKUP_ID}"
