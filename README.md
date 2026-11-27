@@ -70,11 +70,49 @@ isn't.
 
 ## Layout
 
-| Path                                           | What                                               |
-| ---------------------------------------------- | -------------------------------------------------- |
-| `Dockerfile`, `docker-compose.yml`, `build.sh` | the image                                          |
-| `scripts/`                                     | scripts copied into the image (`/usr/local/bin`)   |
-| `manifests/`, `argocd/`                        | the jobs and their Argo CD app (from chapter 6 on) |
+| Path                                           | What                                             |
+| ---------------------------------------------- | ------------------------------------------------ |
+| `Dockerfile`, `docker-compose.yml`, `build.sh` | the image                                        |
+| `scripts/`                                     | scripts copied into the image (`/usr/local/bin`) |
+| `manifests/`, `argocd/`                        | the jobs and their Argo CD app                   |
+
+## Jobs
+
+| Job                | Namespace | When        | PBS backup (namespace `k8s`)                                              | Token                   |
+| ------------------ | --------- | ----------- | ------------------------------------------------------------------------- | ----------------------- |
+| `etcd-backup`      | `backup`  | daily 03:30 | `host/k8smaster-etcd`: `etcd.img` + `kubernetes.pxar` (`/etc/kubernetes`) | `k8s-backup@pbs!etcd`   |
+| `harbor-db-backup` | `harbor`  | daily 03:35 | `host/harbor-db`: `harbor-db.pxar` (`registry.dump` + `globals.sql`)      | `k8s-backup@pbs!harbor` |
+
+Each script stops at the first error and checks what it made before
+sending it (etcd: at least `MIN_KEYS` keys; Harbor: at least
+`MIN_TABLES` tables with data, and roles present). Failed jobs stay
+visible (`backoffLimit: 0`, last 3 kept).
+
+The jobs reach PBS as `pbs.home.adelerhof.eu` (the name on its
+certificate). That name resolves through a CoreDNS `hosts` entry, and the
+Harbor job's egress rule is a NetworkPolicy; both live in the private
+`adelerhof/k8s` repository, so no internal address is in this one.
+
+### Secrets (by hand, never in Git)
+
+Token secrets are in KeePass. Create each Secret from a file so the
+token never lands in the shell history:
+
+```bash
+umask 077; ${EDITOR:-vi} /tmp/pbs-token     # paste the token secret, save
+kubectl -n backup create secret generic pbs-backup --from-file=token=/tmp/pbs-token
+shred -u /tmp/pbs-token
+```
+
+Same for the Harbor job with the `!harbor` token, in namespace `harbor`.
+The Harbor DB password comes from Harbor's own Secret `harbor-database`.
+
+### Run once by hand
+
+```bash
+kubectl -n backup create job etcd-backup-manual --from=cronjob/etcd-backup
+kubectl -n backup logs -f job/etcd-backup-manual
+```
 
 ## Security: this repository is public
 
@@ -82,14 +120,14 @@ Nothing secret or private goes in here: tokens, keys and passwords live in
 Kubernetes Secrets (created by hand, never committed), internal addresses
 and hostnames stay in the private notes.
 
-| Check                                                                     | Where                                               | When                                    |
-| ------------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------- |
-| TruffleHog, whole history                                                 | `.github/workflows/security.yml`, job `secret-scan` | every push, pull request, weekly        |
-| Internal IPs, `*.home`/`*.ansible` hostnames, private keys, PBS key files | same, job `private-info`                            | every push, pull request                |
-| GitHub secret scanning + push protection                                  | repository settings                                 | every push (blocks known token formats) |
-| Dependabot alerts + security updates                                      | repository settings                                 | continuous                              |
-| Dependabot version updates (base image digest, actions), 14-day cooldown  | `.github/dependabot.yml`                            | weekly                                  |
-| CodeQL (GitHub Actions workflows)                                         | repository settings, default setup                  | every push, pull request, weekly        |
+| Check                                                                          | Where                                               | When                                    |
+| ------------------------------------------------------------------------------ | --------------------------------------------------- | --------------------------------------- |
+| TruffleHog, whole history                                                      | `.github/workflows/security.yml`, job `secret-scan` | every push, pull request, weekly        |
+| Internal IPs, bare `*.home`/`*.ansible` hostnames, private keys, PBS key files | same, job `private-info`                            | every push, pull request                |
+| GitHub secret scanning + push protection                                       | repository settings                                 | every push (blocks known token formats) |
+| Dependabot alerts + security updates                                           | repository settings                                 | continuous                              |
+| Dependabot version updates (base image digest, actions), 14-day cooldown       | `.github/dependabot.yml`                            | weekly                                  |
+| CodeQL (GitHub Actions workflows)                                              | repository settings, default setup                  | every push, pull request, weekly        |
 
 Actions are pinned by commit SHA. The `master` ruleset requires a pull
 request and the `secret-scan` and `private-info` checks.

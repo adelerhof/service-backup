@@ -1,0 +1,92 @@
+# trunk-ignore-all(checkov/CKV_K8S_19,checkov/CKV_K8S_23,checkov/CKV_K8S_40): etcd only
+# listens on 127.0.0.1 (host network), /etc/kubernetes/pki is root-only (mode 600).
+# etcd snapshot + /etc/kubernetes -> PBS, nightly (DR plan chapter 6).
+# Secret pbs-backup (key: token) is created by hand, see README.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: etcd-backup
+  namespace: backup
+spec:
+  schedule: 30 3 * * *
+  timeZone: Europe/Amsterdam
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: etcd-backup
+            app.kubernetes.io/part-of: service-backup
+        spec:
+          restartPolicy: Never
+          serviceAccountName: etcd-backup
+          automountServiceAccountToken: false
+          hostNetwork: true
+          # host network, but resolve via CoreDNS (pbs.home.adelerhof.eu
+          # lives in its hosts block, adelerhof/k8s manifests/coredns/)
+          dnsPolicy: ClusterFirstWithHostNet
+          nodeSelector:
+            node-role.kubernetes.io/control-plane: ""
+          tolerations:
+            - key: node-role.kubernetes.io/control-plane
+              operator: Exists
+              effect: NoSchedule
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: etcd-backup
+              image: ghcr.io/adelerhof/k8s-backup:20261127143111@sha256:ae405e2366897dc0bbebc7aee163210df4ae51e3ddf2ecf8a1e1c7a2bc86977b
+              imagePullPolicy: IfNotPresent
+              command: [/usr/local/bin/etcd-backup.sh]
+              env:
+                - name: PBS_REPOSITORY
+                  value: k8s-backup@pbs!etcd@pbs.home.adelerhof.eu:8007:synology
+                - name: PBS_PASSWORD_FILE
+                  value: /secrets/pbs/token
+                - name: HOME
+                  value: /work
+                - name: XDG_RUNTIME_DIR
+                  value: /work
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: "1"
+                  memory: 1Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: etc-kubernetes
+                  mountPath: /host/etc/kubernetes
+                  readOnly: true
+                - name: work
+                  mountPath: /work
+                - name: pbs-token
+                  mountPath: /secrets/pbs
+                  readOnly: true
+          volumes:
+            - name: etc-kubernetes
+              hostPath:
+                path: /etc/kubernetes
+                type: Directory
+            - name: pbs-token
+              secret:
+                secretName: pbs-backup
+                defaultMode: 256 # 0400
+            - name: work
+              emptyDir:
+                sizeLimit: 2Gi

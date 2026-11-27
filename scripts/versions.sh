@@ -17,4 +17,5 @@ show etcdutl etcdutl version
 show proxmox-backup-client proxmox-backup-client version
 show pg_dump pg_dump --version
 show rsync rsync --version
+show jq jq --version
 show user id
