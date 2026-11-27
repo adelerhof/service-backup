@@ -78,10 +78,10 @@ isn't.
 
 ## Jobs
 
-| Job                | Namespace | When        | PBS backup (namespace `k8s`)                                              | Token                   |
-| ------------------ | --------- | ----------- | ------------------------------------------------------------------------- | ----------------------- |
+| Job                | Namespace | When        | PBS backup (namespace `k8s`)                                                                                        | Token                   |
+| ------------------ | --------- | ----------- | ------------------------------------------------------------------------------------------------------------------- | ----------------------- |
 | `etcd-backup`      | `backup`  | daily 03:30 | `host/k8smaster-etcd`: `etcd.img` + `kubernetes.pxar` (`/etc/kubernetes` without `tmp/`, kubeadm upgrade leftovers) | `k8s-backup@pbs!etcd`   |
-| `harbor-db-backup` | `harbor`  | daily 03:35 | `host/harbor-db`: `harbor-db.pxar` (`registry.dump` + `globals.sql`)      | `k8s-backup@pbs!harbor` |
+| `harbor-db-backup` | `harbor`  | daily 03:35 | `host/harbor-db`: `harbor-db.pxar` (`registry.dump` + `globals.sql`)                                                | `k8s-backup@pbs!harbor` |
 
 Each script stops at the first error and checks what it made before
 sending it (etcd: at least `MIN_KEYS` keys; Harbor: at least
