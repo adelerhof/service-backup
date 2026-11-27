@@ -75,3 +75,21 @@ isn't.
 | `Dockerfile`, `docker-compose.yml`, `build.sh` | the image                                          |
 | `scripts/`                                     | scripts copied into the image (`/usr/local/bin`)   |
 | `manifests/`, `argocd/`                        | the jobs and their Argo CD app (from chapter 6 on) |
+
+## Security: this repository is public
+
+Nothing secret or private goes in here: tokens, keys and passwords live in
+Kubernetes Secrets (created by hand, never committed), internal addresses
+and hostnames stay in the private notes.
+
+| Check                                                                     | Where                                               | When                                    |
+| ------------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------- |
+| TruffleHog, whole history                                                 | `.github/workflows/security.yml`, job `secret-scan` | every push, pull request, weekly        |
+| Internal IPs, `*.home`/`*.ansible` hostnames, private keys, PBS key files | same, job `private-info`                            | every push, pull request                |
+| GitHub secret scanning + push protection                                  | repository settings                                 | every push (blocks known token formats) |
+| Dependabot alerts + security updates                                      | repository settings                                 | continuous                              |
+| Dependabot version updates (base image digest, actions), 14-day cooldown  | `.github/dependabot.yml`                            | weekly                                  |
+| CodeQL (GitHub Actions workflows)                                         | repository settings, default setup                  | every push, pull request, weekly        |
+
+Actions are pinned by commit SHA. The `master` ruleset requires a pull
+request and the `secret-scan` and `private-info` checks.

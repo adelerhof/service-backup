@@ -9,7 +9,7 @@
 #   PG_MAJOR         = Harbor's PostgreSQL (harbor-database-0: postgres --version)
 
 # ---------- stage 1: downloads, checked against pinned checksums ----------
-FROM debian:trixie-slim AS fetch
+FROM debian:trixie-slim@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0 AS fetch
 
 ARG ETCD_VERSION=3.6.6
 ARG ETCD_SHA256=887afaa4a99f22d802ccdfbe65730a5e79aa5c9ce2c8799c67e9d804c50ecedb
@@ -42,7 +42,7 @@ RUN curl -fsSLo proxmox-archive-keyring.gpg \
     && gpg --dearmor -o pgdg.gpg pgdg.asc
 
 # ---------- stage 2: the image itself (no curl, no gnupg) ----------
-FROM debian:trixie-slim
+FROM debian:trixie-slim@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0
 
 ARG ETCD_VERSION=3.6.6
 ARG PG_MAJOR=15
